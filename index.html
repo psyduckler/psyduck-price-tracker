@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psyduck 1st Edition Price Tracker</title>
+    <meta name="description" content="Track the price of Fossil 1st Edition NM Psyduck over time">
+    <meta property="og:title" content="Psyduck 1st Edition Price Tracker">
+    <meta property="og:description" content="Fossil 1st Edition Near Mint Psyduck — TCGPlayer price history dashboard">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg: #0f1117;
+            --card-bg: #1a1d27;
+            --card-border: #2a2d3a;
+            --text: #e4e4e7;
+            --text-muted: #71717a;
+            --accent: #FFD700;
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #3b82f6;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .header-icon {
+            font-size: 48px;
+            line-height: 1;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .header .subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-card .change {
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        .positive { color: var(--green); }
+        .negative { color: var(--red); }
+
+        .chart-container {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .chart-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .time-filters {
+            display: flex;
+            gap: 4px;
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 3px;
+        }
+
+        .time-filters button {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .time-filters button.active {
+            background: var(--card-bg);
+            color: var(--text);
+        }
+
+        .time-filters button:hover:not(.active) {
+            color: var(--text);
+        }
+
+        .chart-wrap {
+            position: relative;
+            height: 400px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 640px) {
+            .info-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .chart-wrap { height: 280px; }
+            body { padding: 16px; }
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .info-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-muted);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 14px;
+        }
+
+        .info-row .key { color: var(--text-muted); }
+        .info-row .val { font-weight: 500; }
+
+        .footer {
+            text-align: center;
+            padding: 24px 0;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .tcg-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--blue);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 8px;
+            transition: opacity 0.15s;
+        }
+
+        .tcg-link:hover { opacity: 0.85; }
+
+        .last-updated {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-icon">🦆</div>
+            <div>
+                <h1>Psyduck — Fossil 1st Edition</h1>
+                <div class="subtitle">53/62 · Near Mint · TCGPlayer Market Price</div>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2>Price History</h2>
+                <div class="time-filters" id="timeFilters">
+                    <button data-days="7">7D</button>
+                    <button data-days="30">30D</button>
+                    <button data-days="90">90D</button>
+                    <button data-days="180" class="active">6M</button>
+                </div>
+            </div>
+            <div class="chart-wrap">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card" id="cardInfo"></div>
+            <div class="info-card" id="priceStats"></div>
+        </div>
+
+        <div class="footer">
+            Data from <a href="https://justtcg.com" target="_blank">JustTCG</a> via TCGPlayer · 
+            Prices updated daily · 
+            <a href="https://www.tcgplayer.com/product/44455" target="_blank">View on TCGPlayer →</a>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let allData = null;
+
+        async function init() {
+            const resp = await fetch('data.json');
+            allData = await resp.json();
+            renderStats();
+            renderChart(180);
+            renderInfo();
+            setupFilters();
+        }
+
+        function renderStats() {
+            const history = allData.priceHistory;
+            const current = allData.card.currentPrice;
+            const first = history[0].p;
+            const totalChange = ((current - first) / first * 100).toFixed(1);
+            
+            // 7d change
+            const now = history[history.length - 1].t;
+            const d7 = history.filter(h => h.t >= now - 7 * 86400);
+            const change7d = d7.length > 1 ? ((current - d7[0].p) / d7[0].p * 100).toFixed(1) : '0.0';
+            
+            // 30d change
+            const d30 = history.filter(h => h.t >= now - 30 * 86400);
+            const change30d = d30.length > 1 ? ((current - d30[0].p) / d30[0].p * 100).toFixed(1) : '0.0';
+
+            // High/Low
+            const prices = history.map(h => h.p);
+            const high = Math.max(...prices, current);
+            const low = Math.min(...prices);
+
+            const grid = document.getElementById('statsGrid');
+            grid.innerHTML = `
+                <div class="stat-card">
+                    <div class="label">Current Price</div>
+                    <div class="value" style="color: var(--accent)">$${current.toFixed(2)}</div>
+                    <div class="last-updated">Updated ${new Date(allData.card.lastUpdated * 1000).toLocaleDateString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">6 Month Change</div>
+                    <div class="value ${totalChange >= 0 ? 'positive' : 'negative'}">
+                        ${totalChange >= 0 ? '+' : ''}${totalChange}%
+                    </div>
+                    <div class="change ${totalChange >= 0 ? 'positive' : 'negative'}">
+                        ${totalChange >= 0 ? '↑' : '↓'} $${Math.abs(current - first).toFixed(2)} from $${first.toFixed(2)}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">30 Day Change</div>
+                    <div class="value ${change30d >= 0 ? 'positive' : 'negative'}">
+                        ${change30d >= 0 ? '+' : ''}${change30d}%
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">6M High / Low</div>
+                    <div class="value">$${high.toFixed(2)}</div>
+                    <div class="change" style="color: var(--text-muted)">Low: $${low.toFixed(2)}</div>
+                </div>
+            `;
+        }
+
+        function renderChart(days) {
+            const history = allData.priceHistory;
+            const now = history[history.length - 1].t;
+            const cutoff = now - days * 86400;
+            const filtered = history.filter(h => h.t >= cutoff);
+            
+            // Add current price as last point
+            const data = filtered.map(h => ({ x: new Date(h.t * 1000), y: h.p }));
+            data.push({ x: new Date(allData.card.lastUpdated * 1000), y: allData.card.currentPrice });
+
+            const prices = data.map(d => d.y);
+            const minP = Math.min(...prices);
+            const maxP = Math.max(...prices);
+            const padding = (maxP - minP) * 0.15 || 0.5;
+
+            if (chart) chart.destroy();
+
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(255, 215, 0, 0.15)');
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        data: data,
+                        borderColor: '#FFD700',
+                        borderWidth: 2,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHitRadius: 20,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#FFD700',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1a1d27',
+                            borderColor: '#2a2d3a',
+                            borderWidth: 1,
+                            titleColor: '#71717a',
+                            bodyColor: '#e4e4e7',
+                            bodyFont: { weight: '600', size: 14 },
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                title: (items) => new Date(items[0].parsed.x).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                                label: (item) => `$${item.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: days <= 7 ? 'day' : days <= 30 ? 'week' : 'month',
+                                displayFormats: {
+                                    day: 'MMM d',
+                                    week: 'MMM d',
+                                    month: 'MMM yyyy'
+                                }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#71717a', font: { size: 11 } },
+                            border: { display: false }
+                        },
+                        y: {
+                            min: Math.max(0, minP - padding),
+                            max: maxP + padding,
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: {
+                                color: '#71717a',
+                                font: { size: 11 },
+                                callback: (v) => '$' + v.toFixed(2)
+                            },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderInfo() {
+            const card = allData.card;
+            const history = allData.priceHistory;
+            const prices = history.map(h => h.p);
+
+            document.getElementById('cardInfo').innerHTML = `
+                <h3>Card Details</h3>
+                <div class="info-row"><span class="key">Card</span><span class="val">${card.name}</span></div>
+                <div class="info-row"><span class="key">Number</span><span class="val">${card.number}</span></div>
+                <div class="info-row"><span class="key">Set</span><span class="val">${card.set}</span></div>
+                <div class="info-row"><span class="key">Rarity</span><span class="val">${card.rarity}</span></div>
+                <div class="info-row"><span class="key">Printing</span><span class="val">${card.variant}</span></div>
+                <div class="info-row"><span class="key">Condition</span><span class="val">${card.condition}</span></div>
+                <a class="tcg-link" href="https://www.tcgplayer.com/product/44455" target="_blank">View on TCGPlayer →</a>
+            `;
+
+            const avg = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2);
+            const median = [...prices].sort((a, b) => a - b)[Math.floor(prices.length / 2)].toFixed(2);
+
+            document.getElementById('priceStats').innerHTML = `
+                <h3>Price Statistics (6 Months)</h3>
+                <div class="info-row"><span class="key">Current</span><span class="val" style="color: var(--accent)">$${card.currentPrice.toFixed(2)}</span></div>
+                <div class="info-row"><span class="key">6M High</span><span class="val">$${Math.max(...prices, card.currentPrice).toFixed(2)}</span></div>
+                <div class="info-row"><span class="key">6M Low</span><span class="val">$${Math.min(...prices).toFixed(2)}</span></div>
+                <div class="info-row"><span class="key">Average</span><span class="val">$${avg}</span></div>
+                <div class="info-row"><span class="key">Median</span><span class="val">$${median}</span></div>
+                <div class="info-row"><span class="key">Data Points</span><span class="val">${prices.length}</span></div>
+            `;
+        }
+
+        function setupFilters() {
+            document.querySelectorAll('.time-filters button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelector('.time-filters .active')?.classList.remove('active');
+                    btn.classList.add('active');
+                    renderChart(parseInt(btn.dataset.days));
+                });
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
